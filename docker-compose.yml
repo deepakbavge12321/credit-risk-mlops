@@ -1,0 +1,28 @@
+version: "3.9"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - ./mlruns:/app/mlruns
+      - ./features.json:/app/features.json
+    restart: always
+
+  ui:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.ui
+    ports:
+      - "8501:8501"
+    depends_on:
+      - api
+    volumes:
+      - .:/app
+      - ./mlruns:/app/mlruns
+      - ./features.json:/app/features.json
+    restart: always

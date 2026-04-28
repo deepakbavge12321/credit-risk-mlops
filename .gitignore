@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual env
+venv/
+env/
+.venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Data (IMPORTANT)
+Data/
+data/
+*.csv
+
+# DVC cache
+.dvc/cache/
+
+# MLflow
+mlruns/
+
+# Model artifacts
+artifacts/
+*.pkl
+
+# Streamlit
+.streamlit/
+
+# Docker
+*.tar
+
+# VSCode
+.vscode/
+
+# Environment files
+.env
+
+*.db
+
+# Features file (optional keep or remove depending on size)
+features.json
