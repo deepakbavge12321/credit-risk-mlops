@@ -1,7 +1,7 @@
 data:
-  main: Data/batches/batch_0.csv
-  bureau: Data/batches/bureau.csv
-  bb: Data/batches/bureau_balance.csv
+  main: Data/raw/batch_0.csv
+  bureau: Data/raw/bureau.csv
+  bb: Data/raw/bureau_balance.csv
 
 model:
   objective: binary
@@ -37,7 +37,8 @@ training:
   n_folds: 5
   early_stopping_rounds: 200
   log_freq: 500
-  random_state: 42 # controls StratifiedKFold shuffle
+  random_state: 42
+  test_size: 0.2
 
 calibration:
   use: true

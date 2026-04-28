@@ -1,48 +1,29 @@
 # src/evaluate.py
 
 import logging
-
+import json
+import joblib
+import yaml
+import pandas as pd
 import numpy as np
+
 from sklearn.metrics import (
     confusion_matrix,
     classification_report,
     recall_score,
     precision_score,
+    roc_auc_score,
 )
 
 logger = logging.getLogger("ml_pipeline")
 
 
 # -------------------------------------------------
-# 🔹 Business Loss Function (vectorized)
+# 🔹 Business Loss Function (unchanged)
 # -------------------------------------------------
 
-def expected_loss(
-    y,
-    probs,
-    threshold: float,
-    config: dict,
-) -> float:
-    """
-    Computes mean expected business loss per applicant.
-
-    Approved (low-risk) = probs < threshold
-      • If actual default  → loss of loan_amt
-      • If actual good     → gain of profit_amt  (negative loss)
-
-    Parameters
-    ----------
-    y       : array-like (pandas Series or numpy array)
-    probs   : array-like
-    threshold : float
-    config  : full config dict (reads config["business"])
-
-    Returns
-    -------
-    float — mean loss per applicant
-    """
-    # Coerce to numpy to avoid bitwise-& issues between bool arrays and pd.Series
-    y_arr     = np.asarray(y, dtype=int)
+def expected_loss(y, probs, threshold: float, config: dict) -> float:
+    y_arr = np.asarray(y, dtype=int)
     probs_arr = np.asarray(probs, dtype=float)
 
     loan   = config["business"]["loan_amt"]
@@ -51,27 +32,18 @@ def expected_loss(
     approve = probs_arr < threshold
 
     loss = (
-        (approve & (y_arr == 1)) * loan     # approved defaulters → loss
-        - (approve & (y_arr == 0)) * profit  # approved good payers → profit
+        (approve & (y_arr == 1)) * loan
+        - (approve & (y_arr == 0)) * profit
     )
 
     return float(loss.mean())
 
 
 # -------------------------------------------------
-# 🔹 Threshold Optimisation
+# 🔹 Threshold Optimisation (unchanged)
 # -------------------------------------------------
 
 def find_best_threshold(y, probs, config: dict):
-    """
-    Grid-searches over [threshold.min, threshold.max] in threshold.steps
-    steps and returns the threshold that minimises expected_loss.
-
-    Returns
-    -------
-    best_t   : float
-    best_loss: float
-    """
     thresholds = np.linspace(
         config["threshold"]["min"],
         config["threshold"]["max"],
@@ -87,55 +59,77 @@ def find_best_threshold(y, probs, config: dict):
             best_loss = loss
             best_t    = t
 
-    logger.info(f"Best threshold: {best_t:.4f}  |  Expected loss: {best_loss:.4f}")
+    logger.info(f"Best threshold: {best_t:.4f}  |  Loss: {best_loss:.4f}")
     return best_t, best_loss
 
 
 # -------------------------------------------------
-# 🔹 Evaluation Metrics
+# 🔹 Evaluation (unchanged)
 # -------------------------------------------------
 
-def evaluate_model(
-    y,
-    probs,
-    threshold: float,
-    max_samples: int = 5000,
-) -> None:
-    """
-    Prints confusion matrix and classification report.
-
-    Parameters
-    ----------
-    y           : array-like
-    probs       : array-like
-    threshold   : decision threshold (prob > threshold → predicted default)
-    max_samples : if len(y) > max_samples, a random subsample is used
-                  to avoid OOM on large test sets (mirrors notebook behaviour).
-                  Set to None to evaluate on the full set.
-    """
-    y_arr     = np.asarray(y, dtype=int)
+def evaluate_model(y, probs, threshold: float):
+    y_arr = np.asarray(y, dtype=int)
     probs_arr = np.asarray(probs, dtype=float)
-
-    # Optional subsampling (matches notebook's 5000-row sample)
-    if max_samples is not None and len(y_arr) > max_samples:
-        rng = np.random.default_rng(seed=42)
-        idx      = rng.choice(len(y_arr), size=max_samples, replace=False)
-        y_arr     = y_arr[idx]
-        probs_arr = probs_arr[idx]
-        logger.info(
-            f"evaluate_model: subsampled to {max_samples} rows "
-            f"(pass max_samples=None to evaluate on full test set)"
-        )
 
     preds = (probs_arr > threshold).astype(int)
 
     logger.info("Confusion Matrix:\n" + str(confusion_matrix(y_arr, preds)))
-    logger.info(
-        "Classification Report:\n" + classification_report(y_arr, preds)
-    )
+    logger.info("Classification Report:\n" + classification_report(y_arr, preds))
 
     recall    = recall_score(y_arr, preds)
     precision = precision_score(y_arr, preds)
 
-    logger.info(f"Recall (Default):    {recall:.4f}")
-    logger.info(f"Precision (Default): {precision:.4f}")
+    logger.info(f"Recall: {recall:.4f}")
+    logger.info(f"Precision: {precision:.4f}")
+
+    return recall, precision
+
+
+# -------------------------------------------------
+# 🔹 MAIN (DVC ENTRY POINT)
+# -------------------------------------------------
+
+def main():
+
+    logger.info("Running evaluation stage …")
+
+    # Load config
+    with open("config.yaml") as f:
+        config = yaml.safe_load(f)
+
+    # Load test data
+    test = pd.read_csv("data/test.csv")
+
+    y_test = test["TARGET"]
+    X_test = test.drop(["TARGET", "SK_ID_CURR"], axis=1)
+
+    # Load model
+    model = joblib.load("artifacts/model.pkl")
+
+    # Predict
+    probs = model.predict_proba(X_test)[:, 1]
+
+    # Threshold optimisation
+    best_t, best_loss = find_best_threshold(y_test, probs, config)
+
+    # Evaluation metrics
+    recall, precision = evaluate_model(y_test, probs, best_t)
+    auc = roc_auc_score(y_test, probs)
+
+    # Save metrics (CRITICAL for DVC)
+    metrics = {
+        "auc": float(auc),
+        "recall": float(recall),
+        "precision": float(precision),
+        "best_threshold": float(best_t),
+        "business_loss": float(best_loss),
+    }
+
+    with open("metrics.json", "w") as f:
+        json.dump(metrics, f)
+
+    logger.info("Saved metrics.json")
+
+
+if __name__ == "__main__":
+    main()

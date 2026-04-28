@@ -57,7 +57,7 @@ def train_model(
     )
 
     oof_preds  = np.zeros(len(X))
-    test_preds = np.zeros(len(X_test))
+    test_preds = None if X_test is None else np.zeros(len(X_test))
     scores     = []
     feature_imp = pd.DataFrame()
 
@@ -82,7 +82,8 @@ def train_model(
         model.fit(Xtr, ytr, eval_set=[(Xval, yval)], callbacks=callbacks)
 
         oof_preds[val_idx]  = model.predict_proba(Xval)[:, 1]
-        test_preds         += model.predict_proba(X_test)[:, 1] / N_FOLDS
+        if X_test is not None:
+            test_preds += model.predict_proba(X_test)[:, 1] / N_FOLDS
 
         auc = roc_auc_score(yval, oof_preds[val_idx])
         scores.append(auc)

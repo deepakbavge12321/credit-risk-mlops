@@ -51,3 +51,4 @@ artifacts/
 # Features file (optional keep or remove depending on size)
 features.json
 /Data
+# /metrics.json

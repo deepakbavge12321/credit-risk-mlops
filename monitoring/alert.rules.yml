@@ -1,0 +1,20 @@
+groups:
+  - name: app_alerts
+    rules:
+      # Always firing test
+      - alert: AlwaysFiringTest
+        expr: vector(1)
+        for: 5s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Test alert working"
+
+      # Low request activity (example)
+      - alert: LowTraffic
+        expr: rate(api_requests_total[1m]) == 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No API traffic detected"

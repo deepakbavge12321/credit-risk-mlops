@@ -2,6 +2,10 @@
 import logging
 import numpy as np
 import pandas as pd
+from sklearn.preprocessing import LabelEncoder
+
+from utils import reduce_mem
+
 
 logger = logging.getLogger("ml_pipeline")
 
@@ -177,3 +181,54 @@ def build_bureau_balance_features(bb_path, bureau_path):
     bb_client = bb_client.reset_index()
 
     return bb_client
+
+
+def main():
+    import yaml
+
+    logger.info("Running feature engineering stage …")
+
+    # Load config
+    with open("config.yaml") as f:
+        config = yaml.safe_load(f)
+
+    # Load raw application data
+    df = pd.read_csv(config["data"]["main"])
+
+    # Application features
+    df = application_features(df)
+
+    # Bureau features
+    bureau = build_bureau_features(config["data"]["bureau"])
+    bb = build_bureau_balance_features(
+        config["data"]["bb"],
+        config["data"]["bureau"]
+    )
+
+    # Merge
+    df = df.merge(bureau, on="SK_ID_CURR", how="left")
+    df = df.merge(bb, on="SK_ID_CURR", how="left")
+
+    logger.info(f"Shape after merges: {df.shape}")
+
+    # Encode categoricals
+    le = LabelEncoder()
+    for col in df.select_dtypes(include=["object"]).columns:
+        df[col] = df[col].fillna("Unknown")
+        le.fit(df[col])
+        df[col] = le.transform(df[col])
+
+    # Fill missing
+    df.fillna(0, inplace=True)
+
+    # Reduce memory
+    df = reduce_mem(df)
+
+    # Save output for next stage
+    df.to_csv("data/features.csv", index=False)
+
+    logger.info("Saved features.csv")
+
+
+if __name__ == "__main__":
+    main()
