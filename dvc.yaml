@@ -1,0 +1,42 @@
+stages:
+  features:
+    cmd: python src/features.py
+    deps:
+      - src/features.py
+      - config.yaml
+      - Data/
+    outs:
+      - data/features.csv
+
+  split:
+    cmd: python src/data.py
+    deps:
+      - src/data.py
+      - config.yaml
+      - data/features.csv
+    outs:
+      - data/train.csv
+      - data/test.csv
+
+  train:
+    cmd: python src/train.py
+    deps:
+      - src/train.py
+      - src/model.py
+      - config.yaml
+      - data/train.csv
+    params:
+      - config.yaml
+    outs:
+      - artifacts/model.pkl
+      - features.json
+
+  evaluate:
+    cmd: python src/evaluate.py
+    deps:
+      - src/evaluate.py
+      - config.yaml
+      - artifacts/model.pkl
+      - data/test.csv
+    metrics:
+      - metrics.json
