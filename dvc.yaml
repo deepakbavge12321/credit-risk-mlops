@@ -26,7 +26,7 @@ stages:
       - config.yaml
       - data/train.csv
     params:
-      - config.yaml
+      - config.yaml:
     outs:
       - artifacts/model.pkl
       - features.json
