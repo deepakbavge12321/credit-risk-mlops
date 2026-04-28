@@ -7,6 +7,9 @@
 ![MLflow](https://img.shields.io/badge/MLflow-Tracking-0194E2.svg)
 ![DVC](https://img.shields.io/badge/DVC-Versioning-945DD6.svg)
 
+**Author:** Bavge Deepak Rajkumar 
+**Roll Number:** NA22B031
+
 ## 📖 Project Overview
 
 Financial institutions face the critical challenge of deciding whether to approve or reject credit applications while balancing default risk and profitability.
